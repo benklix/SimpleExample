@@ -6,9 +6,7 @@ public class Vehicle extends Tool {
 	
 	final private int capa = 4; // available capacity
 	private int load; // used capacity
-	private ArrayList<Assignment> pendingTasks = new ArrayList<Assignment>();
-	private ArrayList<Tool> pendingSources = new ArrayList<Tool>();
-	private ArrayList<Tool> pendingDestinations = new ArrayList<Tool>();
+	private PendingTasks pendingTasks = new PendingTasks();
 	private Route vehicleRoute = new Route();
 		
 	public Vehicle(String name_, int id_, Position pos_) {
@@ -16,9 +14,9 @@ public class Vehicle extends Tool {
 		load=0;
 	}
 	
-	public Vehicle(Vehicle veh) {
-		pendingTasks = veh.cloneList(veh.getPendingTasks());
-	}
+//	public Vehicle(Vehicle veh) {
+//		pendingTasks = veh.cloneList(veh.getPendingTasks());
+//	}
 	
 	public Vehicle() {
 	}
@@ -29,20 +27,20 @@ public class Vehicle extends Tool {
 	    for (Assignment task : taskList) {
 	        clonedList.add(new Assignment(task.getIndex(), task.getSource(), task.getDestination(), task.getPrio()));
 	    }
+	    
 	    return clonedList;
 	}
 	
 
 	public void assignTask(Assignment newTask) {
-		pendingTasks.add(newTask);
-		pendingSources.add(newTask.getSource());
-		pendingDestinations.add(newTask.getDestination());
+		
+		pendingTasks.addTask(newTask);
 	}
 
 	public void printTasks() {
 		System.out.print(this.getName()+": ");
 		for(int i=0; i<pendingTasks.size(); i++) {
-			System.out.print(pendingTasks.get(i).getIndex()+"--> ");
+			System.out.print(pendingTasks.getTaskId(i)+"--> ");
 		}
 		System.out.println("finished");
 	}
@@ -50,33 +48,34 @@ public class Vehicle extends Tool {
 	/*
 	 * getter methods
 	 */
-	public ArrayList<Assignment> getPendingTasks() {return pendingTasks;}
-	
-	public ArrayList<Tool> getPendingSources() {return pendingSources;	}
-	
-	public ArrayList<Tool> getPendingDestinations() {return pendingDestinations;}
-	
+	public PendingTasks getPendingTasks() {return pendingTasks;}
+		
 	public int getLoad() {return load;}
 	
 	public Route getRoute() {return vehicleRoute;}
 	
 	public double getPendingWeight() {
+		
 		double pendingWeight = 0.0;
 		
 		for(int i=0; i<pendingTasks.size(); i++){
-			pendingWeight += pendingTasks.get(i).getWeight();
+			pendingWeight += pendingTasks.getTask(i).getWeight();
 		}
+		
 		return pendingWeight;
 	}
 	
 	public double getPendingCost() {
+		
 		double pendingCost = 0.0;
 		
 		for(int i=0; i<pendingTasks.size(); i++){
-			pendingCost += pendingTasks.get(i).getTaskCost();
+			pendingCost += pendingTasks.getTask(i).getTaskCost();
 		}
+		
 		return pendingCost;
 	}
+	
 
 	/*
 	 * raise or lower the transported load
@@ -87,5 +86,11 @@ public class Vehicle extends Tool {
 	
 	public void decrementLoad() {
 		load--;		
+	}
+
+	
+	public void assignRoute(Route copyOfVehicleRoute) {
+		
+		this.vehicleRoute = copyOfVehicleRoute;
 	}	
 }

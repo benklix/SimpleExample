@@ -1,6 +1,21 @@
-/**
+/**********************************************************************************
+ * 
  * @author Benjamin Pietke
- */
+ * 
+ * Working:
+ * - random assignment of the tasks to a random vehicle (watches all constraints)
+ * - route building by weight oriented nearest neighbor and minimal route differences
+ * 
+ * 
+ * In progress:
+ * - calculation of the minimal possible route
+ * - route building by NIM-principle (node insertion move)
+ * 
+ * Open Tasks:
+ * - algorithm for route improvement
+ * - clean up and comment IMPORTENT code
+ * 
+ **********************************************************************************/
 
 import java.util.ArrayList;
 
@@ -92,34 +107,64 @@ public class Optimizer {
 
 		/*
 		 * Step 1: get an opening solution
-		 * assign the most urgent tasks to the respective vehicle^*
-		 * the deference between each route should be as small as possible
-		 * TODO: check options: savings, weight oriented nearest neighbor^*, weight oriented sweep, best/cheapest insertion 
+ 		 * check different options: savings, !weight oriented nearest neighbor!, weight oriented sweep, !best/cheapest insertion move! 
+		 * 
 		 */
+		
+		int option = 1; //Hilfsvariable... 1: weight oriented, 2: best step insertion
+		
+		/*
+		 * route building by weight oriented nearest neighbor and minimal route differences
+		 */
+		if(option == 1) {
+			for(int i=0; i<unassignedTaskList.size(); i++) {
 				
-		for(int i=0; i<unassignedTaskList.size(); i++) {
-			
-			assignTaskByBestTotalCostToVehicle(unassignedTaskList.get(i), vehicleList);
-			
-			if(i == 0) {
-				System.out.println("Minimal possible Cost: "+mimimalPossibleCost(vehicleList));
+				assignTaskByBestTotalCostToVehicle(unassignedTaskList.get(i), vehicleList);
+	
+				if(i == 0) {
+					System.out.println("??? Minimal possible Cost ??? : "+mimimalPossibleCost(vehicleList));
+				}
 			}
 		}
 		
-//		vehicleList.get(0).printTasks();
-//		vehicleList.get(1).printTasks();
-//		vehicleList.get(2).printTasks();
+
+		/*
+		 * route building by best step insertion move
+		 * TODO !!!
+		 */
+		if(option == 2) {
+			//am Anfang kann jedes Fahrzeug jeden Auftrag übernehmen
+			for(int i=0; i<vehicleList.size(); i++) {
+				for(int j=0; j<unassignedTaskList.size(); j++) {
+					vehicleList.get(i).assignTask(unassignedTaskList.get(j));
+				}
+			}
+			
+			
+			for(int i=0; i<vehicleList.size(); i++) {
+//				bestStepInsertionMove(possibleStepList, vehicleList.get(i)); // TODO
+			}
+		}
+
 		
-		routeCost0 = calculateRouteCostForVehicle(vehicleList.get(0));
+		
+		/*
+		 * print task list for each vehicle
+		 */
+		vehicleList.get(0).printTasks();
+		vehicleList.get(1).printTasks();
+		vehicleList.get(2).printTasks();
+		
+		routeCost0 = calculateRouteCost(vehicleList.get(0));
 		System.out.println(routeCost0);
-		routeCost1 = calculateRouteCostForVehicle(vehicleList.get(1));
+		routeCost1 = calculateRouteCost(vehicleList.get(1));
 		System.out.println(routeCost1);
-		routeCost2 = calculateRouteCostForVehicle(vehicleList.get(2));
+		routeCost2 = calculateRouteCost(vehicleList.get(2));
 		System.out.println(routeCost2);
 		System.out.println(routeCost0+routeCost1+routeCost2);
 		
 		/*
-		 * Step 2: reassign the tasks betwenn the vehicles
+		 * Step 2: switch the tasks between the vehicles
 		 * maybe together with Step 1
 		 * improve the total route
 		 */
@@ -194,7 +239,7 @@ public class Optimizer {
 		
 		/*
 		 * Step 3: improve each vehicle route
-		 * TODO check options: node insertion move, node exchange, k-opt-heuristik
+		 * TODO check options: node insertion move, node exchange, k-opt-heuristic
 		 */
 						
 	}
@@ -240,6 +285,7 @@ public class Optimizer {
 
 	/*
 	 * assign most urgent task to respective vehicle
+	 * no capacity violation because always pickup and delivery
 	 */
 	private static void assignTaskByBestTotalCostToVehicle(Assignment task, ArrayList<Vehicle> vehList) {
 		
@@ -251,8 +297,8 @@ public class Optimizer {
 		for(int i=0; i<vehList.size(); i++) {
 		
 			vehList.get(i).assignTask(task);
-			routeCost = calculateRouteCostForVehicle(vehList.get(i));
-			vehList.get(i).getPendingTasks().remove(vehList.get(i).getPendingTasks().size()-1);
+			routeCost = calculateRouteCost(vehList.get(i));
+			vehList.get(i).getPendingTasks().removeTask(vehList.get(i).getPendingTasks().size()-1);
 			
 			if(routeCost < bestCost) {
 				bestVehicleIndex = i;
@@ -262,10 +308,84 @@ public class Optimizer {
 		
 		vehList.get(bestVehicleIndex).assignTask(task);
 		
+		// set vehicle position to last target/destination
+		vehList.get(bestVehicleIndex).setPosition(task.getDestination().getPos());
+	}
+
+	/*
+	 * assign step at the position so the route cost is as small as possible
+	 * NIM: node/step insertion move
+	 */
+	private static void bestStepInsertionMove(Assignment task, ArrayList<Vehicle> vehList) {
+		
+		double bestCost = Double.POSITIVE_INFINITY;
+		double routeCost = 0.0;
+		int bestVehicleIndex = 0;
+		int bestRouteIndex = 0;
+						
+		
+		// assign task to a vehicle so the difference between the routes is minimized
+		for(int i=0; i<vehList.size(); i++) {
+			
+			if(task.getState() == 0) {
+				bestRouteIndex = findBestInsertionPosition(vehList.get(i), task.getSource());
+				vehList.get(i).getRoute().addStepAt(bestRouteIndex, task.getSource()); //add task source to route
+				task.setState(1); // task is processing
+				vehList.get(i).incrementLoad(); //raise load of vehicle by one
+			}
+			else {
+				vehList.get(i).getRoute().addStep(task.getDestination()); //add task destination to route
+				vehList.get(i).decrementLoad(); //lower load of vehicle by one
+			}
+		
+			vehList.get(i).assignTask(task);
+			routeCost = calculateRouteCost(vehList.get(i));
+			vehList.get(i).getPendingTasks().removeTask(vehList.get(i).getPendingTasks().size()-1);
+			
+			if(routeCost < bestCost) {
+				bestVehicleIndex = i;
+				bestCost = routeCost;
+			}
+		}
+		
+		
+		vehList.get(bestVehicleIndex).assignTask(task);
+		
 		// TODO Position wird nur in der lokalen Variable geändert!!!
 		vehList.get(bestVehicleIndex).setPosition(task.getDestination().getPos());
 	}
+
 	
+	/*
+	 * finds the best insertion position
+	 */
+	private static int findBestInsertionPosition(Vehicle vehicle, Tool tool) {
+		
+		int bestInsertionIndex = 0;
+		double bestCost = 0.0;
+		double routeCost = 0.0;
+		
+		vehicle.getRoute().addStep(tool); //am Ende anhängen ist erstmal nie schlecht
+		bestCost = calculateRouteCost(vehicle);
+		vehicle.getRoute().removeStep(vehicle.getRoute().size()-1);
+		
+		for(int i=0; i<vehicle.getRoute().size()+1; i++) {
+			
+			vehicle.getRoute().addStepAt(i, tool);
+			routeCost =calculateRouteCost(vehicle);
+			vehicle.getRoute().removeStep(i);
+			
+			if(routeCost < bestCost) {
+				bestInsertionIndex = i;
+				bestCost = routeCost;
+			}
+		}
+		
+				
+		return bestInsertionIndex;
+	}
+
+
 	/*
 	 * calculate the minimal possible cost
 	 * TODO not totally sure if the minimal tour can be higher for sure
@@ -276,7 +396,7 @@ public class Optimizer {
 		
 		for(int i=0; i<vehList.size(); i++) {
 			if(!vehList.get(i).getPendingTasks().isEmpty())
-				minPosCost = calculateRouteCostForVehicle(vehList.get(i));
+				minPosCost = calculateRouteCost(vehList.get(i));
 		}
 		
 		return minPosCost;
@@ -331,54 +451,69 @@ public class Optimizer {
 	
 	
 	/*
-	 * create sequential route for each vehicle
-	 * TODO eigentliche Routenbildung sollte woanders bzw. nicht strickt sequentiell erfolgen!!!
+	 * calculate route cost for selected vehicle
 	 */
-	private static double calculateRouteCostForVehicle(Vehicle vehicle) {
+	private static double calculateRouteCost(Vehicle vehicle) {
 		
 		double routeCost = 0.0;
-		Tool sourceTool = vehicle;
-		ArrayList<Assignment> copyOfPendingTasks = new ArrayList<Assignment>(vehicle.getPendingTasks());
+		Tool startTool = vehicle;
+		Tool targetTool = vehicle.getPendingTasks().getTask(0).getSource();
+		PendingTasks copyOfPendingTasks = new PendingTasks(vehicle.getPendingTasks());
 		
-//		System.out.print("\n"+vehicle.getName()+":  ");
+//		System.out.print("\n"+vehicle.getName()+":  "+startTool.printPosition()+"->\t");
 		
-		while(!vehicle.getPendingTasks().isEmpty()) {
-			
-			vehicle.getRoute().addTask(vehicle.getPendingTasks().get(0).getSource()); //add task source to route
-			vehicle.getPendingTasks().get(0).setState(1); // task is processing
-			vehicle.incrementLoad(); //raise load of vehicle by one
+		while(!vehicle.getPendingTasks().isEmpty()) {	
 
-			routeCost += getDistance(sourceTool, vehicle.getRoute().getTask(vehicle.getRoute().size()-1))*vehicle.getPendingWeight();
-			sourceTool = vehicle.getRoute().getTask(vehicle.getRoute().size()-1);
-//			System.out.print(vehicle.getLoad()+"->\t");	
+			routeCost += getDistance(startTool, targetTool)*vehicle.getPendingWeight();
+			startTool = targetTool;
+			targetTool = vehicle.getPendingTasks().getTask(0).getDestination();
+			vehicle.getPendingTasks().removeTask(0);
 			
-			vehicle.getRoute().addTask(vehicle.getPendingTasks().get(0).getDestination()); //add task destination to route
-			vehicle.decrementLoad(); //lower load of vehicle by one
-			
-			routeCost += getDistance(sourceTool, vehicle.getRoute().getTask(vehicle.getRoute().size()-1))*vehicle.getPendingWeight();
-			vehicle.getPendingTasks().remove(0);
-			sourceTool = vehicle.getRoute().getTask(vehicle.getRoute().size()-1);
-//			System.out.print(vehicle.getLoad()+"->\t");		
+//			System.out.print(startTool.getName()+"->\t");
 		}		
 		
-//		/*
-//		 * print sequential routes
-//		 */
-//		System.out.print("\n"+vehicle.getName()+":  ");
-//		for(int j=0; j<seqWeightedRoute.size(); j++) {
-//			
-//			System.out.print(seqWeightedRoute.get(j).getName()+"->\t");
-//		}
-//		System.out.println();
-//		
-//		System.out.println(vehicle.getName()+": Sequential weighted route: "+routeCost);
+//		System.out.print(targetTool.getName()+"\n");
 		
 		for(int i=0; i<copyOfPendingTasks.size(); i++) {
-			vehicle.assignTask(copyOfPendingTasks.get(i));
+			
+			vehicle.assignTask(copyOfPendingTasks.getTask(i));
 		}
 		
 		return routeCost;
 	}
+	
+	
+//	/*
+//	 * IMPROVED route cost calculation for selected vehicle
+//	 * works not correct yet!!!
+//	 */
+//	private static double calculateRouteCost(Vehicle vehicle) {
+//		
+//		double routeCost = 0.0;
+//		Tool startTool = vehicle;
+//		Tool targetTool = vehicle.getRoute().getStep(0);
+//		Route copyOfVehicleRoute = new Route(vehicle.getRoute());
+//		
+////		System.out.print("\n"+vehicle.getName()+":  ");
+//		
+//		for(int i=0; i<copyOfVehicleRoute.size(); i++) {	
+//
+//			routeCost += getDistance(startTool, targetTool)*vehicle.getPendingWeight(); //TODO pendingWeight muss kleiner werden!!!
+//			startTool = targetTool;
+//			targetTool = copyOfVehicleRoute.getStep(i);
+//			
+//			//TODO wenn Fahrziel ein Auslieferort ist, setze den Auftrag finished damit pending weight sinkt!!!!
+//			if(true) {
+//			}
+//		
+////			system.out.print(startTool.getName()+"->\t");
+//		}		
+//		
+////		system.out.print(targetTool.getName());
+//		
+//		return routeCost;
+//	}
+	
 	
 	/*
 	 * create some random routes
@@ -430,27 +565,27 @@ public class Optimizer {
 				
 				while(!vehicleList.get(i).getPendingTasks().isEmpty()) {
 					
-					int randTask = (int)(Math.random()*vehicleList.get(i).getPendingSources().size());
+					int randTask = (int)(Math.random()*vehicleList.get(i).getPendingTasks().getPendingSources().size());
 					
-					if((vehicleList.get(i).getPendingTasks().get(randTask).getState() == 0)
+					if((vehicleList.get(i).getPendingTasks().getTask(randTask).getState() == 0)
 							&& (vehicleList.get(i).getLoad() < 4)) {
 						
-						randRoute.add(vehicleList.get(i).getPendingTasks().get(randTask).getSource()); //add task source to route
-						vehicleList.get(i).getPendingSources().remove(randTask);
-						vehicleList.get(i).getPendingTasks().get(randTask).setState(1); // task is processing
+						randRoute.add(vehicleList.get(i).getPendingTasks().getTask(randTask).getSource()); //add task source to route
+						vehicleList.get(i).getPendingTasks().getPendingSources().remove(randTask);
+						vehicleList.get(i).getPendingTasks().getTask(randTask).setState(1); // task is processing
 						vehicleList.get(i).incrementLoad(); //raise load of vehicle by one
 						
 						routeCost += getDistance(sourceTool, randRoute.get(randRoute.size()-1))*vehicleList.get(i).getPendingWeight();
 						sourceTool = randRoute.get(randRoute.size()-1);
 //						System.out.print(vehicleList.get(i).getLoad()+"->\t");		
 					}
-					else if(vehicleList.get(i).getPendingTasks().get(randTask).getState() == 1) {
+					else if(vehicleList.get(i).getPendingTasks().getTask(randTask).getState() == 1) {
 						
-						randRoute.add(vehicleList.get(i).getPendingTasks().get(randTask).getDestination()); //add task destination to route
-						vehicleList.get(i).getPendingDestinations().remove(randTask);
-						vehicleList.get(i).getPendingTasks().get(randTask).setState(0); // task is finished
-						vehicleList.get(i).getPendingTasks().get(randTask).setAssigned(false); // task is finished
-						vehicleList.get(i).getPendingTasks().remove(randTask);
+						randRoute.add(vehicleList.get(i).getPendingTasks().getTask(randTask).getDestination()); //add task destination to route
+						vehicleList.get(i).getPendingTasks().getPendingDestinations().remove(randTask);
+						vehicleList.get(i).getPendingTasks().getTask(randTask).setState(0); // task is finished
+						vehicleList.get(i).getPendingTasks().getTask(randTask).setAssigned(false); // task is finished
+						vehicleList.get(i).getPendingTasks().removeTask(randTask);
 						vehicleList.get(i).decrementLoad(); //lower load of vehicle by one
 						
 						routeCost += getDistance(sourceTool, randRoute.get(randRoute.size()-1))*vehicleList.get(i).getPendingWeight();

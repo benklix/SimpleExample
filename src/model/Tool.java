@@ -7,10 +7,10 @@ public class Tool {
 	double x, y;
 	
 	public Tool() {
-		
 	}
 
 	public Tool(String name_, int id_, double xCoord, double yCoord) {
+		
 		name=name_;
 		id=id_;
 		x=xCoord;
@@ -23,6 +23,8 @@ public class Tool {
 //		x=veh.getX();
 //		y=veh.getY();
 //	}
+	
+	public String printPosition() {return ("( "+getX()+", "+getY()+")");}
 	
 	/*
 	 * getter methods
@@ -41,6 +43,7 @@ public class Tool {
 	 * setter methods
 	 */
 	public void setPosition(Position pos) {
+		
 		this.x = pos.getX();
 		this.y = pos.getY();
 	}

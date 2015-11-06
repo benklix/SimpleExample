@@ -1,17 +1,20 @@
 package model;
 
 public class Assignment {
-	int id;
-	Tool source, destination;
-	int prio;
-	int state = 0; // wartend / geladen / fertig
-	boolean assigned = false; // zugeordnet ja/nein
+	
+	int id; // unique task index
+	Tool source, destination; // start and target tool of the Task
+	int prio; // Task priority 0...100
+	int state = 0; // 0: pending, 1: active, -1: finished
+	boolean assigned = false; // not assigned, true: assigned
+	int routeIndex = 0; // index in the vehicleRoute
 	
 	// Bearbeitungsstatus: true=in Bearbeitung
 	// TODO vielleicht mit enum arbeiten: pending, active, finished
 //	public enum State{PENDING, ACTIVE, FINISHED}
 	
 	public Assignment(int id_, Tool source_, Tool destination_, int prio_) {
+		
 		try {
 			if(source_.getName().equals(destination_.getName()))
 				throw new IllegalArgumentException();
@@ -27,6 +30,7 @@ public class Assignment {
 	}
 	
 	public Assignment(Assignment task) {
+		
 		id=task.getIndex();
 		source=task.getSource();
 		destination=task.getDestination();
@@ -64,10 +68,12 @@ public class Assignment {
 	 * setter methods
 	 */	
 	public void setState(int state) {
+		
 		this.state=state;
 	}
 	
 	public void setAssigned(boolean value) {
+		
 		assigned=value; // TODO Macht false überhaupt Sinn? Dann kein Übergabeparameter...
 	}
 }
